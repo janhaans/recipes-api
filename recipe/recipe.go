@@ -1,6 +1,10 @@
 package recipe
 
-import "time"
+import (
+	"encoding/json"
+	"os"
+	"time"
+)
 
 type Recipe struct {
 	ID           string    `json:"id"`
@@ -12,3 +16,13 @@ type Recipe struct {
 }
 
 var Recipes []Recipe
+
+func init() {
+	bs, err := os.ReadFile("recipes.json")
+	if err != nil {
+		panic(err)
+	}
+	if err := json.Unmarshal(bs, &Recipes); err != nil {
+		panic(err)
+	}
+}

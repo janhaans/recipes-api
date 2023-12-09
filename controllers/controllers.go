@@ -65,3 +65,21 @@ func DeleteRecipeHandler(c *gin.Context) {
 	recipes = append(recipes[:index], recipes[index+1:]...)
 	c.JSON(http.StatusOK, recipe)
 }
+
+func SearchRecipesHandler(c *gin.Context) {
+	tag := c.Query("tag")
+	foundRecipes := make([]recipe.Recipe, 0)
+	for _, recipe := range recipes {
+		for _, t := range recipe.Tags {
+			if t == tag {
+				foundRecipes = append(foundRecipes, recipe)
+			}
+			continue
+		}
+	}
+	if len(foundRecipes) == 0 {
+		c.JSON(http.StatusNoContent, gin.H{"msg": fmt.Sprintf("No recipes found with tag %s\n", tag)})
+		return
+	}
+	c.JSON(http.StatusOK, foundRecipes)
+}

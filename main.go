@@ -44,10 +44,30 @@ func GetRecipesHandler(c *gin.Context) {
 	c.JSON(200, recipes)
 }
 
+func GetRecipesByTagHandler(c *gin.Context) {
+	tag := c.Query("tag")
+	if tag == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Tag query parameter is required"})
+		return
+	}
+
+	filteredRecipes := make([]Recipe, 0)
+	for _, recipe := range recipes {
+		for _, t := range recipe.Tags {
+			if t == tag {
+				filteredRecipes = append(filteredRecipes, recipe)
+				break
+			}
+		}
+	}
+	c.JSON(200, filteredRecipes)
+}
+
 
 func main() {
 	router := gin.Default()
 	router.POST("/recipes", NewRecipeHandler)
 	router.GET("/recipes", GetRecipesHandler)
+	router.GET("/recipes/search", GetRecipesByTagHandler)
 	router.Run()
 }

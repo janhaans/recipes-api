@@ -4,11 +4,18 @@ Copyright © 2023 NAME HERE <EMAIL ADDRESS>
 package main
 
 import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/rs/xid"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type Recipe struct {
@@ -21,10 +28,57 @@ type Recipe struct {
  }
 
  var recipes []Recipe
+ var client *mongo.Client
 
  func init() {
 	recipes = make([]Recipe, 0)
+	var err error
+	// Initialize MongoDB client
+	clientOptions := options.Client().ApplyURI(os.Getenv("MONGODB_URI"))
+	client, err = mongo.Connect(context.TODO(), clientOptions)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Check the connection
+	err = client.Ping(context.TODO(), nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Println("Connected to MongoDB!")
+
+	// Load recipes from file
+	LoadRecipesFromFile()
  }
+
+
+// LoadRecipesFromFile reads recipes from an embedded JSON file and loads them into MongoDB
+func LoadRecipesFromFile() {
+	if client == nil {
+        log.Fatal("MongoDB client is not initialized")
+    }
+
+	file, err := os.ReadFile("recipes.json")
+	if err != nil {
+		log.Fatalf("Failed to read recipes file: %v", err)
+	}
+
+	var loadedRecipes []Recipe
+	if err := json.Unmarshal(file, &loadedRecipes); err != nil {
+		log.Fatalf("Failed to unmarshal recipes: %v", err)
+	}
+
+	collection := client.Database("recipes-db").Collection("recipes")
+	for _, recipe := range loadedRecipes {
+		_, err = collection.InsertOne(context.TODO(), recipe)
+		if err != nil {
+			log.Printf("Failed to load recipe %s: %v", recipe.Name, err)
+		}
+	}
+
+	fmt.Println("Recipes loaded into MongoDB!")
+}
 
 
 func NewRecipeHandler(c *gin.Context) {

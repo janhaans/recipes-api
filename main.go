@@ -14,6 +14,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/rs/xid"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -58,6 +59,24 @@ func LoadRecipesFromFile() {
 	if client == nil {
         log.Fatal("MongoDB client is not initialized")
     }
+
+	collectionNames, err := client.Database("recipes-db").ListCollectionNames(context.TODO(), bson.D{})
+	if err != nil {
+		log.Fatalf("Failed to list collection names: %v", err)
+	}
+
+	collectionExists := false
+	for _, name := range collectionNames {
+		if name == "recipes" {
+			collectionExists = true
+			break
+		}
+	}
+
+	if collectionExists {
+		fmt.Println("Collection 'recipes' already exists in the database.")
+		return
+	}
 
 	file, err := os.ReadFile("recipes.json")
 	if err != nil {

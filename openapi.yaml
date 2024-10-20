@@ -1,0 +1,160 @@
+openapi: 3.1.0
+info:
+  title: Recipes API
+  description: API for managing recipes
+  version: 1.0.0
+paths:
+  /recipes:
+    post:
+      summary: Create a new recipe
+      operationId: createRecipe
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecipeRequestBody"
+      responses:
+        "200":
+          description: Recipe created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecipeResponseBody"
+    get:
+      summary: Get all recipes
+      operationId: getRecipes
+      responses:
+        "200":
+          description: A list of recipes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RecipeResponseBody"
+  /recipes/search:
+    get:
+      summary: Search recipes by tag
+      operationId: searchRecipesByTag
+      parameters:
+        - name: tag
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: A list of recipes with the specified tag
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RecipeResponseBody"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+  /recipes/{id}:
+    put:
+      summary: Update a recipe by ID
+      operationId: updateRecipe
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecipeRequestBody"
+      responses:
+        "200":
+          description: Recipe updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecipeResponseBody"
+        "404":
+          description: Recipe not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+    delete:
+      summary: Delete a recipe by ID
+      operationId: deleteRecipe
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Recipe deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        "404":
+          description: Recipe not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+components:
+  schemas:
+    RecipeRequestBody:
+      type: object
+      properties:
+        name:
+          type: string
+        ingredients:
+          type: array
+          items:
+            type: string
+        instructions:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+    RecipeResponseBody:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        ingredients:
+          type: array
+          items:
+            type: string
+        instructions:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        publishedAt:
+          type: string
+          format: date-time

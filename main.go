@@ -109,12 +109,35 @@ func NewRecipeHandler(c *gin.Context) {
 	newRecipe.ID = xid.New().String()
 	newRecipe.PublishedAt = time.Now()
 	recipes = append(recipes, newRecipe)
-	// Here you would typically save the newRecipe to a database
+
+	// Save the newRecipe to MongoDB
+	collection := client.Database("recipes-db").Collection("recipes")
+	_, err := collection.InsertOne(context.TODO(), newRecipe)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save recipe to database"})
+		return
+	}
+
 	c.JSON(201, newRecipe)
 }
 
 func GetRecipesHandler(c *gin.Context) {
-	c.JSON(200, recipes)
+	collection := client.Database("recipes-db").Collection("recipes")
+
+	cursor, err := collection.Find(context.TODO(), bson.D{})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch recipes from database"})
+		return
+	}
+	defer cursor.Close(context.TODO())
+
+	var allRecipes []Recipe
+	if err := cursor.All(context.TODO(), &allRecipes); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode recipes"})
+		return
+	}
+
+	c.JSON(200, allRecipes)
 }
 
 func GetRecipesByTagHandler(c *gin.Context) {
@@ -124,15 +147,22 @@ func GetRecipesByTagHandler(c *gin.Context) {
 		return
 	}
 
-	filteredRecipes := make([]Recipe, 0)
-	for _, recipe := range recipes {
-		for _, t := range recipe.Tags {
-			if t == tag {
-				filteredRecipes = append(filteredRecipes, recipe)
-				break
-			}
-		}
+	collection := client.Database("recipes-db").Collection("recipes")
+	filter := bson.M{"tags": tag}
+
+	cursor, err := collection.Find(context.TODO(), filter)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch recipes from database"})
+		return
 	}
+	defer cursor.Close(context.TODO())
+
+	var filteredRecipes []Recipe
+	if err := cursor.All(context.TODO(), &filteredRecipes); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode recipes"})
+		return
+	}
+
 	c.JSON(200, filteredRecipes)
 }
 
@@ -144,31 +174,56 @@ func UpdateRecipeHandler(c *gin.Context) {
 		return
 	}
 
-	for i, recipe := range recipes {
-		if recipe.ID == id {
-			updatedRecipe.ID = recipe.ID
-			updatedRecipe.PublishedAt = recipe.PublishedAt
-			recipes[i] = updatedRecipe
-			c.JSON(200, updatedRecipe)
-			return
-		}
+	collection := client.Database("recipes-db").Collection("recipes")
+	filter := bson.M{"id": id}
+	update := bson.M{
+		"$set": bson.M{
+			"name":         updatedRecipe.Name,
+			"tags":         updatedRecipe.Tags,
+			"ingredients":  updatedRecipe.Ingredients,
+			"instructions": updatedRecipe.Instructions,
+		},
 	}
 
-	c.JSON(http.StatusNotFound, gin.H{"error": "Recipe not found"})
+	result, err := collection.UpdateOne(context.TODO(), filter, update)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update recipe in database"})
+		return
+	}
+
+	if result.MatchedCount == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Recipe not found"})
+		return
+	}
+
+	var resultRecipe Recipe
+	err = collection.FindOne(context.TODO(), filter).Decode(&resultRecipe)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch updated recipe from database"})
+		return
+	}
+
+	c.JSON(200, resultRecipe)
 }
 
 func DeleteRecipeHandler(c *gin.Context) {
 	id := c.Param("id")
 
-	for i, recipe := range recipes {
-		if recipe.ID == id {
-			recipes = append(recipes[:i], recipes[i+1:]...)
-			c.JSON(200, gin.H{"message": "Recipe deleted"})
-			return
-		}
+	collection := client.Database("recipes-db").Collection("recipes")
+	filter := bson.M{"id": id}
+
+	result, err := collection.DeleteOne(context.TODO(), filter)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete recipe from database"})
+		return
 	}
 
-	c.JSON(http.StatusNotFound, gin.H{"error": "Recipe not found"})
+	if result.DeletedCount == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Recipe not found"})
+		return
+	}
+
+	c.JSON(200, gin.H{"message": "Recipe deleted"})
 }
 
 func main() {

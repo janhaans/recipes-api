@@ -13,26 +13,17 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/janhaans/recipe-api/models"
 	"github.com/rs/xid"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-type Recipe struct {
-	ID           string    `json:"id"`
-	Name         string    `json:"name"`
-	Tags         []string  `json:"tags"`
-	Ingredients  []string  `json:"ingredients"`
-	Instructions []string  `json:"instructions"`
-	PublishedAt  time.Time `json:"publishedAt"`
- }
-
- var recipes []Recipe
  var client *mongo.Client
+ var collection *mongo.Collection
 
  func init() {
-	recipes = make([]Recipe, 0)
 	var err error
 	// Initialize MongoDB client
 	clientOptions := options.Client().ApplyURI(os.Getenv("MONGODB_URI"))
@@ -83,12 +74,12 @@ func LoadRecipesFromFile() {
 		log.Fatalf("Failed to read recipes file: %v", err)
 	}
 
-	var loadedRecipes []Recipe
+	var loadedRecipes []models.Recipe
 	if err := json.Unmarshal(file, &loadedRecipes); err != nil {
 		log.Fatalf("Failed to unmarshal recipes: %v", err)
 	}
 
-	collection := client.Database("recipes-db").Collection("recipes")
+	collection = client.Database("recipes-db").Collection("recipes")
 	for _, recipe := range loadedRecipes {
 		_, err = collection.InsertOne(context.TODO(), recipe)
 		if err != nil {
@@ -101,17 +92,15 @@ func LoadRecipesFromFile() {
 
 
 func NewRecipeHandler(c *gin.Context) {
-	var newRecipe Recipe
+	var newRecipe models.Recipe
 	if err := c.ShouldBindJSON(&newRecipe); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 	newRecipe.ID = xid.New().String()
 	newRecipe.PublishedAt = time.Now()
-	recipes = append(recipes, newRecipe)
 
 	// Save the newRecipe to MongoDB
-	collection := client.Database("recipes-db").Collection("recipes")
 	_, err := collection.InsertOne(context.TODO(), newRecipe)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save recipe to database"})
@@ -122,8 +111,6 @@ func NewRecipeHandler(c *gin.Context) {
 }
 
 func GetRecipesHandler(c *gin.Context) {
-	collection := client.Database("recipes-db").Collection("recipes")
-
 	cursor, err := collection.Find(context.TODO(), bson.D{})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch recipes from database"})
@@ -131,7 +118,7 @@ func GetRecipesHandler(c *gin.Context) {
 	}
 	defer cursor.Close(context.TODO())
 
-	var allRecipes []Recipe
+	var allRecipes []models.Recipe
 	if err := cursor.All(context.TODO(), &allRecipes); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode recipes"})
 		return
@@ -147,7 +134,6 @@ func GetRecipesByTagHandler(c *gin.Context) {
 		return
 	}
 
-	collection := client.Database("recipes-db").Collection("recipes")
 	filter := bson.M{"tags": tag}
 
 	cursor, err := collection.Find(context.TODO(), filter)
@@ -157,7 +143,7 @@ func GetRecipesByTagHandler(c *gin.Context) {
 	}
 	defer cursor.Close(context.TODO())
 
-	var filteredRecipes []Recipe
+	var filteredRecipes []models.Recipe
 	if err := cursor.All(context.TODO(), &filteredRecipes); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode recipes"})
 		return
@@ -168,13 +154,12 @@ func GetRecipesByTagHandler(c *gin.Context) {
 
 func UpdateRecipeHandler(c *gin.Context) {
 	id := c.Param("id")
-	var updatedRecipe Recipe
+	var updatedRecipe models.Recipe
 	if err := c.ShouldBindJSON(&updatedRecipe); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	collection := client.Database("recipes-db").Collection("recipes")
 	filter := bson.M{"id": id}
 	update := bson.M{
 		"$set": bson.M{
@@ -196,7 +181,7 @@ func UpdateRecipeHandler(c *gin.Context) {
 		return
 	}
 
-	var resultRecipe Recipe
+	var resultRecipe models.Recipe
 	err = collection.FindOne(context.TODO(), filter).Decode(&resultRecipe)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch updated recipe from database"})
@@ -209,7 +194,6 @@ func UpdateRecipeHandler(c *gin.Context) {
 func DeleteRecipeHandler(c *gin.Context) {
 	id := c.Param("id")
 
-	collection := client.Database("recipes-db").Collection("recipes")
 	filter := bson.M{"id": id}
 
 	result, err := collection.DeleteOne(context.TODO(), filter)

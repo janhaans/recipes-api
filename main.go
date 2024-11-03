@@ -13,6 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/janhaans/recipe-api/handlers"
 	"github.com/janhaans/recipe-api/models"
+	"github.com/redis/go-redis/v9"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -20,34 +21,63 @@ import (
 
  var client *mongo.Client
  var collection *mongo.Collection
+ var redisClient *redis.Client
  var ctx = context.TODO()
  var handler *handlers.RecipeHandler
 
 
  func init() {
+	// Connect to MongoDB
+	ConnectToMongoDB()
+
+	// Connect to Redis
+	ConnectToRedis()
+
+	// Load recipes from file into MongoDB
+	LoadRecipesFromFile()
+
+	// Initialize the RecipeHandler
+	collection = client.Database("recipes-db").Collection("recipes")
+	handler = handlers.NewRecipeHandler(ctx, collection, redisClient)
+ }
+
+ // Connect to MongoDB
+func ConnectToMongoDB() {
 	var err error
-	// Initialize MongoDB client
 	clientOptions := options.Client().ApplyURI(os.Getenv("MONGODB_URI"))
 	client, err = mongo.Connect(ctx, clientOptions)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Failed to connect to MongoDB: %v", err)
 	}
 
 	// Check the connection
 	err = client.Ping(ctx, nil)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Failed to ping MongoDB: %v", err)
 	}
 
 	fmt.Println("Connected to MongoDB!")
+}
 
-	// Load recipes from file
-	LoadRecipesFromFile()
+// ConnectToRedis connects to the Redis server
+func ConnectToRedis() *redis.Client {
+	redisAddr := os.Getenv("REDIS_ADDR")
+	if redisAddr == "" {
+		log.Fatal("REDIS_ADDR environment variable is not set")
+	}
 
-	// Initialize the RecipeHandler
-	collection = client.Database("recipes-db").Collection("recipes")
-	handler = handlers.NewRecipeHandler(ctx, collection)
- }
+	redisClient = redis.NewClient(&redis.Options{
+		Addr: redisAddr,
+	})
+
+	_, err := redisClient.Ping(ctx).Result()
+	if err != nil {
+		log.Fatalf("Failed to connect to Redis: %v", err)
+	}
+
+	fmt.Println("Connected to Redis!")
+	return redisClient
+}
 
 
 // LoadRecipesFromFile reads recipes from an embedded JSON file and loads them into MongoDB

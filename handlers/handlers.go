@@ -2,11 +2,13 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/janhaans/recipe-api/models"
+	"github.com/redis/go-redis/v9"
 	"github.com/rs/xid"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -15,13 +17,15 @@ import (
 type RecipeHandler struct {
 	ctx context.Context
 	collection *mongo.Collection
+	redisClient *redis.Client
 
 }
 
-func NewRecipeHandler(ctx context.Context, collection *mongo.Collection) *RecipeHandler {
+func NewRecipeHandler(ctx context.Context, collection *mongo.Collection, redisClient *redis.Client) *RecipeHandler {
 	return &RecipeHandler{
-		ctx: ctx,
-		collection: collection,
+		ctx:         ctx,
+		collection:  collection,
+		redisClient: redisClient,
 	}
 }
 
@@ -41,24 +45,59 @@ func (h *RecipeHandler) NewRecipeHandler(c *gin.Context) {
 		return
 	}
 
+	// Delete the allRecipes key from Redis cache
+	err = h.redisClient.Del(h.ctx, "allRecipes").Err()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete cache"})
+		return
+	}
+
 	c.IndentedJSON(201, newRecipe)
 }
 
 func (h *RecipeHandler) GetRecipesHandler(c *gin.Context) {
-	cursor, err := h.collection.Find(context.TODO(), bson.D{})
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch recipes from database"})
-		return
-	}
-	defer cursor.Close(h.ctx)
+	// Check if recipes are cached in Redis
+	val, err := h.redisClient.Get(h.ctx, "allRecipes").Result()
+	if err == redis.Nil {
+		// Key does not exist, fetch from MongoDB
+		cursor, err := h.collection.Find(h.ctx, bson.D{})
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch recipes from database"})
+			return
+		}
+		defer cursor.Close(h.ctx)
 
-	var allRecipes []models.Recipe
-	if err := cursor.All(h.ctx, &allRecipes); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode recipes"})
-		return
-	}
+		var allRecipes []models.Recipe
+		if err := cursor.All(h.ctx, &allRecipes); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode recipes"})
+			return
+		}
 
-	c.IndentedJSON(200, allRecipes)
+		// Cache the recipes in Redis
+		recipesJSON, err := json.Marshal(allRecipes)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to encode recipes"})
+			return
+		}
+		err = h.redisClient.Set(h.ctx, "allRecipes", recipesJSON, 10*time.Minute).Err()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to cache recipes"})
+			return
+		}
+
+		c.IndentedJSON(200, allRecipes)
+	} else if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch recipes from cache"})
+		return
+	} else {
+		// Recipes found in cache
+		var allRecipes []models.Recipe
+		if err := json.Unmarshal([]byte(val), &allRecipes); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode cached recipes"})
+			return
+		}
+		c.IndentedJSON(200, allRecipes)
+	}
 }
 
 func (h *RecipeHandler) GetRecipesByTagHandler(c *gin.Context) {
@@ -122,6 +161,13 @@ func (h RecipeHandler) UpdateRecipeHandler(c *gin.Context) {
 		return
 	}
 
+	// Delete the allRecipes key from Redis cache
+	err = h.redisClient.Del(h.ctx, "allRecipes").Err()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete cache"})
+		return
+	}
+
 	c.IndentedJSON(200, resultRecipe)
 }
 
@@ -138,6 +184,13 @@ func (h * RecipeHandler) DeleteRecipeHandler(c *gin.Context) {
 
 	if result.DeletedCount == 0 {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Recipe not found"})
+		return
+	}
+
+	// Delete the allRecipes key from Redis cache
+	err = h.redisClient.Del(h.ctx, "allRecipes").Err()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete cache"})
 		return
 	}
 

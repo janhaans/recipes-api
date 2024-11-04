@@ -13,7 +13,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/janhaans/recipe-api/handlers"
 	"github.com/janhaans/recipe-api/models"
-	"github.com/redis/go-redis/v9"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -21,7 +20,6 @@ import (
 
  var mongoClient *mongo.Client
  var recipesCollection *mongo.Collection
- var redisClient *redis.Client
  var ctx = context.TODO()
  var recipeHandler *handlers.RecipeHandler
 
@@ -30,15 +28,12 @@ import (
 	// Connect to MongoDB
 	ConnectToMongoDB()
 
-	// Connect to Redis
-	ConnectToRedis()
-
 	// Load recipes from file into MongoDB
 	LoadRecipesFromFile()
 
 	// Initialize the RecipeHandler
 	recipesCollection = mongoClient.Database("recipes-db").Collection("recipes")
-	recipeHandler = handlers.NewRecipeHandler(ctx, recipesCollection, redisClient)
+	recipeHandler = handlers.NewRecipeHandler(ctx, recipesCollection)
  }
 
  // Connect to MongoDB
@@ -57,26 +52,6 @@ func ConnectToMongoDB() {
 	}
 
 	fmt.Println("Connected to MongoDB!")
-}
-
-// ConnectToRedis connects to the Redis server
-func ConnectToRedis() *redis.Client {
-	redisAddr := os.Getenv("REDIS_ADDR")
-	if redisAddr == "" {
-		log.Fatal("REDIS_ADDR environment variable is not set")
-	}
-
-	redisClient = redis.NewClient(&redis.Options{
-		Addr: redisAddr,
-	})
-
-	_, err := redisClient.Ping(ctx).Result()
-	if err != nil {
-		log.Fatalf("Failed to connect to Redis: %v", err)
-	}
-
-	fmt.Println("Connected to Redis!")
-	return redisClient
 }
 
 

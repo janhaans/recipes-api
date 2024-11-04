@@ -19,11 +19,11 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
- var client *mongo.Client
- var collection *mongo.Collection
+ var mongoClient *mongo.Client
+ var recipesCollection *mongo.Collection
  var redisClient *redis.Client
  var ctx = context.TODO()
- var handler *handlers.RecipeHandler
+ var recipeHandler *handlers.RecipeHandler
 
 
  func init() {
@@ -37,21 +37,21 @@ import (
 	LoadRecipesFromFile()
 
 	// Initialize the RecipeHandler
-	collection = client.Database("recipes-db").Collection("recipes")
-	handler = handlers.NewRecipeHandler(ctx, collection, redisClient)
+	recipesCollection = mongoClient.Database("recipes-db").Collection("recipes")
+	recipeHandler = handlers.NewRecipeHandler(ctx, recipesCollection, redisClient)
  }
 
  // Connect to MongoDB
 func ConnectToMongoDB() {
 	var err error
 	clientOptions := options.Client().ApplyURI(os.Getenv("MONGODB_URI"))
-	client, err = mongo.Connect(ctx, clientOptions)
+	mongoClient, err = mongo.Connect(ctx, clientOptions)
 	if err != nil {
 		log.Fatalf("Failed to connect to MongoDB: %v", err)
 	}
 
 	// Check the connection
-	err = client.Ping(ctx, nil)
+	err = mongoClient.Ping(ctx, nil)
 	if err != nil {
 		log.Fatalf("Failed to ping MongoDB: %v", err)
 	}
@@ -82,11 +82,11 @@ func ConnectToRedis() *redis.Client {
 
 // LoadRecipesFromFile reads recipes from an embedded JSON file and loads them into MongoDB
 func LoadRecipesFromFile() {
-	if client == nil {
+	if mongoClient == nil {
         log.Fatal("MongoDB client is not initialized")
     }
 
-	collectionNames, err := client.Database("recipes-db").ListCollectionNames(ctx, bson.D{})
+	collectionNames, err := mongoClient.Database("recipes-db").ListCollectionNames(ctx, bson.D{})
 	if err != nil {
 		log.Fatalf("Failed to list collection names: %v", err)
 	}
@@ -114,9 +114,9 @@ func LoadRecipesFromFile() {
 		log.Fatalf("Failed to unmarshal recipes: %v", err)
 	}
 
-	collection := client.Database("recipes-db").Collection("recipes")
+	recipesCollection := mongoClient.Database("recipes-db").Collection("recipes")
 	for _, recipe := range loadedRecipes {
-		_, err = collection.InsertOne(ctx, recipe)
+		_, err = recipesCollection.InsertOne(ctx, recipe)
 		if err != nil {
 			log.Printf("Failed to load recipe %s: %v", recipe.Name, err)
 		}
@@ -127,10 +127,10 @@ func LoadRecipesFromFile() {
 
 func main() {
 	router := gin.Default()
-	router.POST("/recipes", handler.NewRecipeHandler)
-	router.GET("/recipes", handler.GetRecipesHandler)
-	router.GET("/recipes/search", handler.GetRecipesByTagHandler)
-	router.PUT("/recipes/:id", handler.UpdateRecipeHandler)
-	router.DELETE("/recipes/:id", handler.DeleteRecipeHandler)
+	router.POST("/recipes", recipeHandler.NewRecipeHandler)
+	router.GET("/recipes", recipeHandler.GetRecipesHandler)
+	router.GET("/recipes/search", recipeHandler.GetRecipesByTagHandler)
+	router.PUT("/recipes/:id", recipeHandler.UpdateRecipeHandler)
+	router.DELETE("/recipes/:id", recipeHandler.DeleteRecipeHandler)
 	router.Run()
 }

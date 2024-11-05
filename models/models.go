@@ -1,6 +1,9 @@
 package models
 
-import "time"
+import (
+	"context"
+	"time"
+)
 
 type Recipe struct {
 	ID           string    `json:"id"`
@@ -11,8 +14,10 @@ type Recipe struct {
 	PublishedAt  time.Time `json:"publishedAt"`
  }
 
- type User struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
-	Email    string `json:"email"`
-}
+ type RecipeRepository interface {
+	 GetRecipes(ctx context.Context) ([]Recipe, error)
+	 GetRecipesByTagHandler(ctx context.Context, tag string) ([]Recipe, error)
+	 CreateRecipe(ctx context.Context, recipe Recipe) error
+	 UpdateRecipe(ctx context.Context, id string, recipe Recipe) (*Recipe, error)
+	 DeleteRecipe(ctx context.Context, id string) error
+ }

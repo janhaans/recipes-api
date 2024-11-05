@@ -8,19 +8,17 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/janhaans/recipe-api/models"
 	"github.com/rs/xid"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
 )
 
 type RecipeHandler struct {
 	ctx context.Context
-	collection *mongo.Collection
+	repo models.RecipeRepository
 }
 
-func NewRecipeHandler(ctx context.Context, collection *mongo.Collection) *RecipeHandler {
+func NewRecipeHandler(ctx context.Context, repo models.RecipeRepository) *RecipeHandler {
 	return &RecipeHandler{
-		ctx:         ctx,
-		collection:  collection,
+		ctx:    ctx,
+		repo:  	repo,
 	}
 }
 
@@ -34,8 +32,7 @@ func (h *RecipeHandler) NewRecipeHandler(c *gin.Context) {
 	newRecipe.PublishedAt = time.Now()
 
 	// Save the newRecipe to MongoDB
-	_, err := h.collection.InsertOne(h.ctx, newRecipe)
-	if err != nil {
+	if err := h.repo.CreateRecipe(h.ctx, newRecipe); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save recipe to database"})
 		return
 	}
@@ -44,16 +41,9 @@ func (h *RecipeHandler) NewRecipeHandler(c *gin.Context) {
 }
 
 func (h *RecipeHandler) GetRecipesHandler(c *gin.Context) {
-	cursor, err := h.collection.Find(h.ctx, bson.D{})
+	allRecipes, err := h.repo.GetRecipes(h.ctx)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch recipes from database"})
-		return
-	}
-	defer cursor.Close(h.ctx)
-
-	var allRecipes []models.Recipe
-	if err := cursor.All(h.ctx, &allRecipes); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode recipes"})
 		return
 	}
 
@@ -67,18 +57,9 @@ func (h *RecipeHandler) GetRecipesByTagHandler(c *gin.Context) {
 		return
 	}
 
-	filter := bson.M{"tags": tag}
-
-	cursor, err := h.collection.Find(h.ctx, filter)
+	filteredRecipes, err := h.repo.GetRecipesByTagHandler(h.ctx, tag)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch recipes from database"})
-		return
-	}
-	defer cursor.Close(h.ctx)
-
-	var filteredRecipes []models.Recipe
-	if err := cursor.All(h.ctx, &filteredRecipes); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode recipes"})
 		return
 	}
 
@@ -93,50 +74,21 @@ func (h RecipeHandler) UpdateRecipeHandler(c *gin.Context) {
 		return
 	}
 
-	filter := bson.M{"id": id}
-	update := bson.M{
-		"$set": bson.M{
-			"name":         updatedRecipe.Name,
-			"tags":         updatedRecipe.Tags,
-			"ingredients":  updatedRecipe.Ingredients,
-			"instructions": updatedRecipe.Instructions,
-		},
-	}
-
-	result, err := h.collection.UpdateOne(h.ctx, filter, update)
+	recipe, err := h.repo.UpdateRecipe(h.ctx, id, updatedRecipe)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update recipe in database"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	if result.MatchedCount == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Recipe not found"})
-		return
-	}
-
-	var resultRecipe models.Recipe
-	err = h.collection.FindOne(h.ctx, filter).Decode(&resultRecipe)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch updated recipe from database"})
-		return
-	}
-
-	c.IndentedJSON(200, resultRecipe)
+	c.IndentedJSON(200, recipe)
 }
 
 func (h * RecipeHandler) DeleteRecipeHandler(c *gin.Context) {
 	id := c.Param("id")
 
-	filter := bson.M{"id": id}
-
-	result, err := h.collection.DeleteOne(h.ctx, filter)
+	err := h.repo.DeleteRecipe(h.ctx, id)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete recipe from database"})
-		return
-	}
-
-	if result.DeletedCount == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Recipe not found"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 

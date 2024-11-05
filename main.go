@@ -11,6 +11,7 @@ import (
 	"os"
 
 	"github.com/gin-gonic/gin"
+	"github.com/janhaans/recipe-api/db"
 	"github.com/janhaans/recipe-api/handlers"
 	"github.com/janhaans/recipe-api/models"
 	"go.mongodb.org/mongo-driver/bson"
@@ -19,7 +20,6 @@ import (
 )
 
  var mongoClient *mongo.Client
- var recipesCollection *mongo.Collection
  var ctx = context.TODO()
  var recipeHandler *handlers.RecipeHandler
 
@@ -32,8 +32,8 @@ import (
 	LoadRecipesFromFile()
 
 	// Initialize the RecipeHandler
-	recipesCollection = mongoClient.Database("recipes-db").Collection("recipes")
-	recipeHandler = handlers.NewRecipeHandler(ctx, recipesCollection)
+	repo := db.NewMongoDBRecipesRepository(mongoClient, "recipes-db")
+	recipeHandler = handlers.NewRecipeHandler(ctx, repo)
  }
 
  // Connect to MongoDB

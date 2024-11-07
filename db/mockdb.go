@@ -1,6 +1,7 @@
 package db
 
 import (
+	"context"
 	"time"
 
 	"github.com/janhaans/recipe-api/models"
@@ -12,7 +13,7 @@ func NewMockDBRecipesRepository() *MockDBRecipesRepository {
 	return &MockDBRecipesRepository{}
 }
 
-func (r *MockDBRecipesRepository) GetRecipes() ([]models.Recipe, error) {
+func (r *MockDBRecipesRepository) GetRecipes(ctx context.Context) ([]models.Recipe, error) {
 	return []models.Recipe{
 		{
 			ID:           "1",
@@ -33,7 +34,7 @@ func (r *MockDBRecipesRepository) GetRecipes() ([]models.Recipe, error) {
 	}, nil
 }
 
-func (r *MockDBRecipesRepository) GetRecipesByTag(tag string) ([]models.Recipe, error) {
+func (r *MockDBRecipesRepository) GetRecipesByTag(ctx context.Context, tag string) ([]models.Recipe, error) {
 	return []models.Recipe{
 		{
 			ID:           "1",
@@ -46,11 +47,11 @@ func (r *MockDBRecipesRepository) GetRecipesByTag(tag string) ([]models.Recipe, 
 	}, nil
 }
 
-func (r *MockDBRecipesRepository) CreateRecipe(recipe models.Recipe) error {
+func (r *MockDBRecipesRepository) CreateRecipe(ctx context.Context, recipe models.Recipe) error {
 	return nil
 }
 
-func (r *MockDBRecipesRepository) UpdateRecipe(id string, recipe models.Recipe) (*models.Recipe, error) {
+func (r *MockDBRecipesRepository) UpdateRecipe(ctx context.Context, id string, recipe models.Recipe) (*models.Recipe, error) {
 	return &models.Recipe{
 		ID:           "1",
 		Name:         "Spaghetti Carbonara",
@@ -61,6 +62,6 @@ func (r *MockDBRecipesRepository) UpdateRecipe(id string, recipe models.Recipe) 
 	}, nil
 }
 
-func (r *MockDBRecipesRepository) DeleteRecipe(id string) error {
+func (r *MockDBRecipesRepository) DeleteRecipe(ctx context.Context, id string) error {
 	return nil
 }

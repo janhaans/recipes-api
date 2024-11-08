@@ -13,6 +13,8 @@ func AddRecipeRoutes(router *gin.Engine, recipeHandler *handlers.RecipeHandler) 
 		routerGroup.POST("", recipeHandler.NewRecipeHandler)
 		//Get all recipes
 		routerGroup.GET("", recipeHandler.GetRecipesHandler)
+		//Get a recipe by ID
+		routerGroup.GET("/:id", recipeHandler.GetRecipeByIDHandler)
 		//Get recipes by tag
 		routerGroup.GET("/search", recipeHandler.GetRecipesByTag)
 		//Update a recipe

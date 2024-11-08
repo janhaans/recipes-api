@@ -73,6 +73,37 @@ func TestGetRecipes(t *testing.T) {
 	assert.Contains(t, w.Body.String(), "Beef Stroganoff")
 }
 
+//Test: Get a recipe by ID
+func TestGetRecipeByID(t *testing.T) {
+	// Create a new HTTP request
+	req, _ := http.NewRequest("GET", "/recipes/1", nil)
+
+	// Create a response recorder
+	w := httptest.NewRecorder()
+
+	// Perform the request
+	router.ServeHTTP(w, req)
+
+	// Assert the response
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "Spaghetti Carbonara")
+}
+
+func TestGetRecipeByIDNotFound(t *testing.T) {
+	// Create a new HTTP request
+	req, _ := http.NewRequest("GET", "/recipes/blablha", nil)
+
+	// Create a response recorder
+	w := httptest.NewRecorder()
+
+	// Perform the request
+	router.ServeHTTP(w, req)
+
+	// Assert the response
+	assert.Equal(t, http.StatusNotFound, w.Code)
+	assert.JSONEq(t, `{"error": "recipe not found"}`, w.Body.String())
+}
+
 //Test: Get recipes by tag
 func TestGetRecipeByTag(t *testing.T) {
 	// Create a new HTTP request
@@ -115,6 +146,29 @@ func TestUpdateRecipe(t *testing.T) {
 	assert.Contains(t, w.Body.String(), `"id": "1"`)
 }
 
+func TestUpdateRecipeNotFound(t *testing.T) {
+	// Create a new recipe JSON payload
+	updatedRecipe := `{
+		"name": "Spaghetti Carbonara",
+		"tags": ["pasta", "italian"],
+		"ingredients": ["spaghetti", "eggs", "pancetta", "pecorino cheese"],
+		"steps": ["Cook spaghetti", "Fry pancetta", "Mix eggs and cheese", "Combine all ingredients"]
+	}`
+
+	// Create a new HTTP request
+	req, _ := http.NewRequest("PUT", "/recipes/blabla", bytes.NewBuffer([]byte(updatedRecipe)))
+	req.Header.Set("Content-Type", "application/json")
+
+	// Create a response recorder
+	w := httptest.NewRecorder()
+
+	// Perform the request
+	router.ServeHTTP(w, req)
+
+	// Assert the response
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
 //Test: Delete a recipe
 func TestDeleteRecipe(t *testing.T) {
 	// Create a new HTTP request
@@ -128,4 +182,18 @@ func TestDeleteRecipe(t *testing.T) {
 
 	// Assert the response
 	assert.Equal(t, http.StatusNoContent, w.Code)
+}
+
+func TestDeleteRecipeNotFound(t *testing.T) {
+	// Create a new HTTP request
+	req, _ := http.NewRequest("DELETE", "/recipes/blabla", nil)
+
+	// Create a response recorder
+	w := httptest.NewRecorder()
+
+	// Perform the request
+	router.ServeHTTP(w, req)
+
+	// Assert the response
+	assert.Equal(t, http.StatusNotFound, w.Code)
 }

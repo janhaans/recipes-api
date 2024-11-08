@@ -16,6 +16,7 @@ type Recipe struct {
 
  type RecipeRepository interface {
 	 GetRecipes(ctx context.Context) ([]Recipe, error)
+	 GetRecipe(ctx context.Context, id string) (*Recipe, error)
 	 GetRecipesByTag(ctx context.Context, tag string) ([]Recipe, error)
 	 CreateRecipe(ctx context.Context, recipe Recipe) error
 	 UpdateRecipe(ctx context.Context, id string, recipe Recipe) (*Recipe, error)

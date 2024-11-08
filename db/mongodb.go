@@ -41,7 +41,7 @@ func (r *MongoDBRecipesRepository) GetRecipes(ctx context.Context) ([]models.Rec
 	return recipes, nil
 }
 
-func (r *MongoDBRecipesRepository) GetRecipesByTagHandler(ctx context.Context, tag string) ([]models.Recipe, error) {
+func (r *MongoDBRecipesRepository) GetRecipesByTag(ctx context.Context, tag string) ([]models.Recipe, error) {
 	filter := bson.M{"tags": tag}
 	cursor, err := r.recipes.Find(ctx, filter)
 	if err != nil {

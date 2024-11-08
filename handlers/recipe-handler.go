@@ -50,14 +50,14 @@ func (h *RecipeHandler) GetRecipesHandler(c *gin.Context) {
 	c.IndentedJSON(200, allRecipes)
 }
 
-func (h *RecipeHandler) GetRecipesByTagHandler(c *gin.Context) {
+func (h *RecipeHandler) GetRecipesByTag(c *gin.Context) {
 	tag := c.Query("tag")
 	if tag == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Tag query parameter is required"})
 		return
 	}
 
-	filteredRecipes, err := h.repo.GetRecipesByTagHandler(h.ctx, tag)
+	filteredRecipes, err := h.repo.GetRecipesByTag(h.ctx, tag)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch recipes from database"})
 		return
@@ -92,5 +92,5 @@ func (h * RecipeHandler) DeleteRecipeHandler(c *gin.Context) {
 		return
 	}
 
-	c.IndentedJSON(200, gin.H{"message": "Recipe deleted"})
+	c.IndentedJSON(204, gin.H{"message": "Recipe deleted"})
 }

@@ -41,6 +41,20 @@ func (r *MongoDBRecipesRepository) GetRecipes(ctx context.Context) ([]models.Rec
 	return recipes, nil
 }
 
+func (r *MongoDBRecipesRepository) GetRecipe(ctx context.Context, id string) (*models.Recipe, error) {
+	filter := bson.M{"id": id}
+	var recipe models.Recipe
+	err := r.recipes.FindOne(ctx, filter).Decode(&recipe)
+	if err == mongo.ErrNoDocuments {
+		return nil, fmt.Errorf("recipe not found")
+	} else if err != nil {
+		log.Println(err)
+		return nil, fmt.Errorf("failed to fetch recipe from database")
+	}
+
+	return &recipe, nil
+}
+
 func (r *MongoDBRecipesRepository) GetRecipesByTag(ctx context.Context, tag string) ([]models.Recipe, error) {
 	filter := bson.M{"tags": tag}
 	cursor, err := r.recipes.Find(ctx, filter)
@@ -78,13 +92,11 @@ func (r *MongoDBRecipesRepository) UpdateRecipe(ctx context.Context, id string, 
 		},
 	}
 	result, err := r.recipes.UpdateOne(ctx, filter, update)
-	if err!=nil {
-		return nil, fmt.Errorf("failed to update recipe in database")
-	}
-	
-
 	if result.MatchedCount == 0 {
 		return nil, fmt.Errorf("recipe not found")
+	}
+	if err!=nil {
+		return nil, fmt.Errorf("failed to update recipe in database")
 	}
 
 	var resultRecipe models.Recipe
@@ -99,7 +111,10 @@ func (r *MongoDBRecipesRepository) UpdateRecipe(ctx context.Context, id string, 
 func (r *MongoDBRecipesRepository) DeleteRecipe(ctx context.Context, id string) error {
 	filter := bson.M{"id": id}
 	result, err := r.recipes.DeleteOne(ctx, filter)
-	if err!=nil {
+	if err == mongo.ErrNoDocuments {
+		return fmt.Errorf("recipe not found")
+	} else if err != nil {
+		log.Println(err)
 		return fmt.Errorf("failed to delete recipe from database")
 	}
 

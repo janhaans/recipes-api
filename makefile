@@ -104,3 +104,9 @@ clean-redis-data:
 start:
 	@echo "Starting application..."
 	@MONGODB_URI="mongodb://$(MONGO_INITDB_ROOT_USERNAME):$(MONGO_INITDB_ROOT_PASSWORD)@localhost:$(MONGO_PORT)/test?authSource=admin" REDIS_ADDR="localhost:$(REDIS_PORT)" go run main.go
+
+# Test application
+.PHONY: test
+test:
+	@echo "Running tests..."
+	@MONGODB_URI="mongodb://$(MONGO_INITDB_ROOT_USERNAME):$(MONGO_INITDB_ROOT_PASSWORD)@localhost:$(MONGO_PORT)/test?authSource=admin" go test -v ./...

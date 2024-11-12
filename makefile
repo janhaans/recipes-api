@@ -100,10 +100,11 @@ clean-redis-data:
 
 
 # Start application
+# JWR_TOKEN is a secret key for JWT token and has been created using the following command: openssl rand -base64 16
 .PHONY: start
 start:
 	@echo "Starting application..."
-	@MONGODB_URI="mongodb://$(MONGO_INITDB_ROOT_USERNAME):$(MONGO_INITDB_ROOT_PASSWORD)@localhost:$(MONGO_PORT)/test?authSource=admin" REDIS_ADDR="localhost:$(REDIS_PORT)" go run main.go
+	@MONGODB_URI="mongodb://$(MONGO_INITDB_ROOT_USERNAME):$(MONGO_INITDB_ROOT_PASSWORD)@localhost:$(MONGO_PORT)/test?authSource=admin" REDIS_ADDR="localhost:$(REDIS_PORT)" JWT_TOKEN="K80bAxYFHnfwEhwuzo82fQ==" go run main.go
 
 # Test application
 .PHONY: test

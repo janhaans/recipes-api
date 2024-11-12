@@ -25,8 +25,12 @@ func main() {
 	repo := db.NewMongoDBRecipesRepository(mongoClient, "recipes-db")
 	recipeHandler := handlers.NewRecipeHandler(ctx, repo)
 
+	// Initialize the UserHandler
+	userHandler := handlers.NewUserHandler(ctx)
+
 	// Initialize the Gin router
 	router := gin.Default()
 	routers.AddRecipeRoutes(router, recipeHandler)
+	routers.AddUserRoutes(router, userHandler)
 	router.Run()
 }
